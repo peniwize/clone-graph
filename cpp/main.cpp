@@ -34,12 +34,38 @@ public:
 class Solution {
 public:
     Node* cloneGraph(Node* node) {
-        
-//
-//!\todo TODO: >>> Under Construction <<<
-//
-return nullptr;
+        if (!node) { return nullptr; }
 
+        unordered_map<int, Node*> clones{};
+        deque<tuple<Node*, Node*>> que{};
+        
+        auto cloneGraphRoot = new Node{node->val};
+        clones.insert(make_pair(cloneGraphRoot->val, cloneGraphRoot));
+
+        que.emplace_back(make_tuple(node, cloneGraphRoot));
+        while (!que.empty()) {
+            auto [node, clone] = que.front();
+            que.pop_front();
+            for (auto* neighbor : node->neighbors) {
+                auto findIter = clones.find(neighbor->val);
+                auto const neighborCloneExists = clones.end() != findIter;
+                if (neighborCloneExists) {
+                    // Add existing neighbor clone to clone.
+                    Node* neighborClone = findIter->second;
+                    clone->neighbors.push_back(std::move(neighborClone));
+                } else {
+                    // Clone node neighbor and add neighbor clone to clone's neighbors.
+                    auto neighborClone = new Node{neighbor->val};
+                    clones.insert(make_pair(neighborClone->val, neighborClone));
+                    clone->neighbors.push_back(std::move(neighborClone));
+
+                    // Visit neighbor's neighbors.
+                    que.emplace_back(make_tuple(neighbor, neighborClone));
+                }
+            }
+        }
+
+        return cloneGraphRoot;
     }
 };
 
@@ -49,33 +75,154 @@ namespace doctest {
     const char* testName() noexcept { return doctest::detail::g_cs->currentTest->m_name; }
 } // namespace doctest {
 
-static Node* makeGraph(vector<vector<int>> const& edgeList)
+static Node* createGraphFromEdgeList(vector<vector<int>> const& edgeList)
 {
+    Node* root{};
 
-//
-//!\todo TODO: >>> Under Construction <<<
-//
-return nullptr;
+    // For each edge in the edge list:
+    unordered_map<int, Node*> nodes{};
+    int edgeListIdx = 1;
+    for (auto const& edge : edgeList)
+    {
+        // Create or fetch edge node.
+        Node* node{};
+        auto nodesIter = nodes.find(edgeListIdx);
+        bool const nodeExists = nodes.end() != nodesIter;
+        if (nodeExists)
+        {
+            // Fetch existing node.
+            node = nodesIter->second;
+        }
+        else
+        {
+            // Create a new node.
+            node = new Node{edgeListIdx};
+            nodes.insert(make_pair(node->val, node));
+        }
+        ++edgeListIdx;
 
+        if (!root) { root = node; }
+
+        // For each vertex in the edge:
+        for (auto const vertex : edge)
+        {
+            Node* neighbor{};
+
+            // Create or fetch vertex node.
+            auto nodesIter = nodes.find(vertex);
+            bool const neighborExists = nodes.end() != nodesIter;
+            if (neighborExists)
+            {
+                // Fetch existing node.
+                neighbor = nodesIter->second;
+            }
+            else
+            {
+                // Create new node.
+                neighbor = new Node{vertex};
+                nodes.insert(make_pair(neighbor->val, neighbor));
+            }
+
+            node->neighbors.push_back(neighbor);
+        }
+    }
+    
+    return root;
 }
 
 static void deleteGraph(Node* graph)
 {
+    if (graph)
+    {
+        unordered_map<int, unique_ptr<Node>> nodes{};
+        deque<Node*> que{};
+        nodes.insert(make_pair(graph->val, graph));
+        que.emplace_back(std::move(graph));
+        while (!que.empty())
+        {
+            Node* node = que.front();
+            que.pop_front();
+            for (auto* neighbor : node->neighbors)
+            {
+                bool const unvisited = nodes.end() == nodes.find(neighbor->val);
+                if (unvisited)
+                {
+                    nodes.insert(make_pair(neighbor->val, neighbor));
+                    que.push_back(neighbor);
+                }
+            }
+        }
+    }
+}
 
-//
-//!\todo TODO: >>> Under Construction <<<
-//
+static vector<vector<int>> toEdgeList(Node const* graph)
+{
+    vector<vector<int>> result{};
 
+    if (graph)
+    {
+        map<int, vector<int>> edgeList{};
+
+        unordered_map<int, Node const*> nodes{};
+        deque<Node const*> que{};
+        que.emplace_back(graph);
+        nodes.insert(make_pair(graph->val, graph));
+        while (!que.empty())
+        {
+            auto* node = que.front();
+            que.pop_front();
+
+            vector<int>* vertices{};
+            auto edgeListIter = edgeList.find(node->val);
+            if (edgeList.end() == edgeListIter)
+            {
+                edgeList.insert(make_pair(node->val, vector<int>{}));
+                vertices = &edgeList[node->val];
+            }
+            else
+            {
+                vertices = &edgeListIter->second;
+            }
+
+            for (auto const* neighbor : node->neighbors)
+            {
+                vertices->push_back(neighbor->val);
+
+                bool const unvisited = nodes.end() == nodes.find(neighbor->val);
+                if (unvisited)
+                {
+                    que.push_back(neighbor);
+                    nodes.insert(make_pair(neighbor->val, neighbor));
+                }
+            }
+        }
+
+        // Create result from edge list.
+        int firstEdge = 1;
+        for (auto& edge : edgeList)
+        {
+            int fillCount = edge.first - firstEdge;
+            fill_n(result.end(), fillCount, vector<int>{});
+            firstEdge = edge.first + 1;
+
+            result.emplace_back(std::move(edge.second));
+        }
+
+        // Sort edges (to make future comparisons easier).
+        for (auto& vertices : result)
+        {
+            sort(vertices.begin(), vertices.end());
+        }
+    }
+    
+    return result;
 }
 
 static bool graphsAreEquivalent(Node const* graph1, Node const* graph2)
 {
-
-//
-//!\todo TODO: >>> Under Construction <<<
-//
-return false;
-
+    auto edgeList1 = toEdgeList(graph1);
+    auto edgeList2 = toEdgeList(graph2);
+    return edgeList1 == edgeList2;
 }
 
 TEST_CASE("Case 1")
@@ -87,7 +234,7 @@ TEST_CASE("Case 1")
         {2,4},
         {1,3}
     };
-    auto* graph = makeGraph(edgeList);
+    auto* graph = createGraphFromEdgeList(edgeList);
     auto solution = Solution{};
     { // New scope.
         auto const start = std::chrono::steady_clock::now();
@@ -105,7 +252,7 @@ TEST_CASE("Case 2")
     auto edgeList = vector<vector<int>>{
         {},
     };
-    auto* graph = makeGraph(edgeList);
+    auto* graph = createGraphFromEdgeList(edgeList);
     auto solution = Solution{};
     { // New scope.
         auto const start = std::chrono::steady_clock::now();
@@ -122,7 +269,7 @@ TEST_CASE("Case 3")
     cerr << doctest::testName() << '\n';
     auto edgeList = vector<vector<int>>{
     };
-    auto* graph = makeGraph(edgeList);
+    auto* graph = createGraphFromEdgeList(edgeList);
     auto solution = Solution{};
     { // New scope.
         auto const start = std::chrono::steady_clock::now();
